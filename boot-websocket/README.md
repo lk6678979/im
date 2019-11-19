@@ -1,4 +1,6 @@
 # SpringBoot实现Websocket（负载均衡时无法使用，session无法共享）
+## 一句话原理 
+我们只需要将websocketsession存储在ConcurrentHashMap中就OK，每次发送通知都从map中根据用户ID获取对应的websocket的session进行消息通知。如果要实现聊天室，则每次便嬖map中所有的session发送消息，如果是点对点，则维护2个session的对应关系即可
 ## 1. Pom依赖
 ```xml
     <parent>
