@@ -26,40 +26,19 @@ var Socket = new WebSocket(url, [protocol] );
 # WebSocket 属性
 以下是 WebSocket 对象的属性。假定我们使用了以上代码创建了 Socket 对象：
 
-属性	描述
-Socket.readyState	
-只读属性 readyState 表示连接状态，可以是以下值：
+![](https://github.com/lk6678979/image/blob/master/spring-cloud/websocket2.jpg)
 
-0 - 表示连接尚未建立。
-
-1 - 表示连接已建立，可以进行通信。
-
-2 - 表示连接正在进行关闭。
-
-3 - 表示连接已经关闭或者连接不能打开。
-
-Socket.bufferedAmount	
-只读属性 bufferedAmount 已被 send() 放入正在队列中等待传输，但是还没有发出的 UTF-8 文本字节数。
-
-WebSocket 事件
+# WebSocket 事件
 以下是 WebSocket 对象的相关事件。假定我们使用了以上代码创建了 Socket 对象：
 
-事件	事件处理程序	描述
-open	Socket.onopen	连接建立时触发
-message	Socket.onmessage	客户端接收服务端数据时触发
-error	Socket.onerror	通信发生错误时触发
-close	Socket.onclose	连接关闭时触发
-WebSocket 方法
+![](https://github.com/lk6678979/image/blob/master/spring-cloud/websocket3.jpg)
+
+# WebSocket 方法
 以下是 WebSocket 对象的相关方法。假定我们使用了以上代码创建了 Socket 对象：
 
-方法	描述
-Socket.send()	
-使用连接发送数据
+![](https://github.com/lk6678979/image/blob/master/spring-cloud/websocket34.jpg)
 
-Socket.close()	
-关闭连接
-
-WebSocket 实例
+# WebSocket 实例
 WebSocket 协议本质上是一个基于 TCP 的协议。
 
 为了建立一个 WebSocket 连接，客户端浏览器首先要向服务器发起一个 HTTP 请求，这个请求和通常的 HTTP 请求不同，包含了一些附加头信息，其中附加头信息"Upgrade: WebSocket"表明这是一个申请协议升级的 HTTP 请求，服务器端解析这些附加的头信息然后产生应答信息返回给客户端，客户端和服务器端的 WebSocket 连接就建立起来了，双方就可以通过这个连接通道自由的传递信息，并且这个连接会持续存在直到客户端或者服务器端的某一方主动的关闭连接。
@@ -69,6 +48,7 @@ WebSocket 协议本质上是一个基于 TCP 的协议。
 
 runoob_websocket.html 文件内容
 
+```js
 <!DOCTYPE HTML>
 <html>
    <head>
@@ -122,32 +102,4 @@ runoob_websocket.html 文件内容
       
    </body>
 </html>
-安装 pywebsocket
-在执行以上程序前，我们需要创建一个支持 WebSocket 的服务。从 pywebsocket 下载 mod_pywebsocket ,或者使用 git 命令下载：
-
-git clone https://github.com/google/pywebsocket.git
-mod_pywebsocket 需要 python 环境支持
-
-mod_pywebsocket 是一个 Apache HTTP 的 Web Socket扩展，安装步骤如下：
-解压下载的文件。
-
-进入 pywebsocket 目录。
-
-执行命令：
-
-$ python setup.py build
-$ sudo python setup.py install
-查看文档说明:
-
-$ pydoc mod_pywebsocket
-开启服务
-在 pywebsocket/mod_pywebsocket 目录下执行以下命令：
-
-$ sudo python standalone.py -p 9998 -w ../example/
-以上命令会开启一个端口号为 9998 的服务，使用 -w 来设置处理程序 echo_wsh.py 所在的目录。
-
-现在我们可以在 Chrome 浏览器打开前面创建的 runoob_websocket.html 文件。如果你的浏览器支持 WebSocket(), 点击"运行 WebSocket"，你就可以看到整个流程各个步骤弹出的窗口，流程 Gif 演示：
-
-
-
-在我们停止服务后，会弹出 "连接已关闭..."。
+```
