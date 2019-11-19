@@ -9,7 +9,7 @@ WebSocket 使得客户端和服务器之间的数据交换变得更加简单，�
 现在，很多网站为了实现推送技术，所用的技术都是 Ajax 轮询。轮询是在特定的的时间间隔（如每1秒），由浏览器对服务器发出HTTP请求，然后由服务器返回最新的数据给客户端的浏览器。这种传统的模式带来很明显的缺点，即浏览器需要不断的向服务器发出请求，然而HTTP请求可能包含较长的头部，其中真正有效的数据可能只是很小的一部分，显然这样会浪费很多的带宽等资源。
 
 HTML5 定义的 WebSocket 协议，能更好的节省服务器资源和带宽，并且能够更实时地进行通讯。
-
+![](https://github.com/lk6678979/image/blob/master/spring-cloud/websocket.jpg)
 
 
 浏览器通过 JavaScript 向服务器发出建立 WebSocket 连接的请求，连接建立以后，客户端和服务器端就可以通过 TCP 连接直接交换数据。
@@ -18,10 +18,12 @@ HTML5 定义的 WebSocket 协议，能更好的节省服务器资源和带宽，
 
 以下 API 用于创建 WebSocket 对象。
 
+```js
 var Socket = new WebSocket(url, [protocol] );
+```
 以上代码中的第一个参数 url, 指定连接的 URL。第二个参数 protocol 是可选的，指定了可接受的子协议。
 
-WebSocket 属性
+# WebSocket 属性
 以下是 WebSocket 对象的属性。假定我们使用了以上代码创建了 Socket 对象：
 
 属性	描述
