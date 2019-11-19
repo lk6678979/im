@@ -26,17 +26,15 @@ var Socket = new WebSocket(url, [protocol] );
 # WebSocket 属性
 以下是 WebSocket 对象的属性。假定我们使用了以上代码创建了 Socket 对象：
 
-https://github.com/lk6678979/image/blob/master/websocket2.jpg
+![](https://github.com/lk6678979/image/blob/master/websocket2.jpg)
 
 # WebSocket 事件
 以下是 WebSocket 对象的相关事件。假定我们使用了以上代码创建了 Socket 对象：
-
-https://github.com/lk6678979/image/blob/master/websocket3.jpg
+![](https://github.com/lk6678979/image/blob/master/websocket3.jpg)
 
 # WebSocket 方法
 以下是 WebSocket 对象的相关方法。假定我们使用了以上代码创建了 Socket 对象：
-
-https://github.com/lk6678979/image/blob/master/websocket34.jpg
+![](https://github.com/lk6678979/image/blob/master/websocket34.jpg)
 
 # WebSocket 实例
 WebSocket 协议本质上是一个基于 TCP 的协议。
