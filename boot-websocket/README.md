@@ -120,3 +120,4 @@ public class MyWebSocket {
 }
 ```
 ## 4. 编写客户端webSocketTest.html(放到static目录下)
+https://github.com/lk6678979/im/blob/master/boot-websocket/src/main/resources/static/demo.html
