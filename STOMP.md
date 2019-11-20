@@ -80,7 +80,4 @@ content-length:57
 使用STOMP的好处在于，它完全就是一种消息队列模式，你可以使用生产者与消费者的思想来认识它，发送消息的是生产者，接收消息的是消费者。而消费者可以通过订阅不同的destination，来获得不同的推送消息，不需要开发人员去管理这些订阅与推送目的地之前的关系，spring官网就有一个简单的spring-boot的stomp-demo,如果是基于springboot，大家可以根据spring上面的教程试着去写一个简单的demo。
 * 而stomp这种协议的核心思想如下图所示，spring官网也有：
 ![](https://github.com/lk6678979/image/blob/master/STOMP3.jpg)
-
-```
 stomp定义了自己的消息传输体制。首先是通过一个后台绑定的连接点endpoint来建立socket连接，然后生产者通过send方法，绑定好发送的目的地也就是destination，而topic和app(后面还会说到)则是一种消息处理手段的分支，走app/url的消息会被你设置到的MassageMapping拦截到，进行你自己定义的具体逻辑处理，而走topic/url的消息就不会被拦截，直接到Simplebroker节点中将消息推送出去。其中simplebroker是spring的一种基于内存的消息队列，你也可以使用activeMQ，rabbitMQ代替。
-```
