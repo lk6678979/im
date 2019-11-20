@@ -101,4 +101,4 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     }
 }
 ```
-### 2、先写应用接收消息和发送消息实体类
+### 2、编写写应用接收消息和发送消息实体类
