@@ -299,6 +299,7 @@ public class FastPrincipal implements Principal {
                 .addInterceptors(new HandleShakeInterceptors()).withSockJS();
 
     }
+```
 * 在注册方法中addInterceptors添加握手拦截器，校验用户信息，返回true则握手成功，返回false则拒绝握手，注册失败
 ```
 import org.springframework.web.socket.server.HandshakeInterceptor;
