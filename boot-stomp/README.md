@@ -231,5 +231,66 @@ public class ResponseMessage {
     }
 ```
 * @SubscribeMapping的主要应用场景是实现请求-回应模式。在请求-回应模式中，客户端订阅某一个目的地，然后预期在这个目的地上获得一个一次性的响应。
-* 使用了@SubscribeMapping注解，用这个方法来处理对“/app/demo”目的地的订阅（与@MessageMapping类似，“/app”是隐含的）。当处理这个订阅时，方法会产生一个输出的ResponseMessage对象并将其返回。然后，Shout对象会转换成一条消息，并且会按照客户端订阅时相同的目的地发送回客户端。
+* 使用了@SubscribeMapping注解，用这个方法来处理对“/app/demo”目的地的订阅（与@MessageMapping类似，“/app”是隐含的）。当处理这个订阅时，方法会产生一个输出的ResponseMessage对象并将其返回。然后，ResponseMessage对象会转换成一条消息，并且会按照客户端订阅时相同的目的地发送回客户端。
 * 如果你觉得这种请求-回应模式与HTTP GET的请求-响应模式里的关键区别在于HTTPGET请求是同步的，而订阅的请求-回应模式则是异步的，这样客户端能够在回应可用时再去处理，而不必等待。
+### 4、 发送消息到客户端
+#### 4.1 在处理消息之后发送消息
+* 正如前面看到的那样，使用 @MessageMapping 或者 @SubscribeMapping 注解可以处理客户端发送过来的消息，并选择方法是否有返回值。
+* 如果 @MessageMapping 注解的控制器方法有返回值的话，返回值会被发送到消息代理，只不过会添加上"/topic"前缀。可以使用@SendTo 重写消息目的地；
+* 如果 @SubscribeMapping 注解的控制器方法有返回值的话，返回值会直接发送到客户端，不经过代理。如果加上@SendTo 注解的话，则要经过消息代理。
+#### 4.2 在应用的任意地方发送消息
+spring-websocket 定义了一个 SimpMessageSendingOperations 接口（或者使用SimpMessagingTemplate ），可以实现自由的向任意目的地发送消息，并且订阅此目的地的所有用户都能收到消息。
+```java
+    @Autowired
+    private SimpMessagingTemplate simpMessagingTemplate;
+
+    /**
+     * 不实用@SendTo，使用SimpMessagingTemplate发送消息
+     */
+    @MessageMapping("/demo")
+    public void stompHandle(RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setContent(requestMessage.getContent());
+        responseMessage.setSender(requestMessage.getSender());
+        simpMessagingTemplate.convertAndSend("/topic/demo", responseMessage);
+    }
+```
+#### 4.3 为指定用户发送消息
+如果你知道用户是谁的话，那么就能处理与某个用户相关的消息，而不仅仅是与所有客户端相关联。我们可以使用Spring Security来认证用户，并为目标用户处理消息。在使用Spring和STOMP消息功能的时候，我们有三种方式利用认证用户：
+* @MessageMapping和@SubscribeMapping标注的方法能够使用Principal来获取认证用户(当前发送请求的用户）；
+* @MessageMapping、@SubscribeMapping和@MessageException方法返回的值能够以消息的形式发送给入参Principal对象的认证用户（也就是当前请求的用户）；
+* SimpMessagingTemplate能够发送消息给特定用户。
+##### 4.3.1 如何为每个客户端绑定Principal?
+
+##### 4.3.2 在控制器中处理用户的消息
+在控制器的@MessageMapping或@SubscribeMapping方法中，处理消息时有两种方式了解用户信息。在处理器方法中，通过简单地添加一个Principal参数，这个方法就能知道用户是谁并利用该信息关注此用户相关的数据。除此之外，处理器方法还可以使用@SendToUser注解或者使用SimpMessageSendingOperations 接口的convertAndSendToUser方法，表明它的返回值要以消息的形式发送给某个认证用户的客户端（只发送给该客户端）。
+###### 4.3.2.1 基于@SendToUser注解和Principal参数
+```java
+  @MessageMapping("/spittle")
+  @SendToUser("/queue/notifications")
+  public Notification handleSpittle(Principal principal, SpittleForm form) {
+      Spittle spittle = new Spittle(principal.getName(), form.getText(), new Date());
+      spittleRepo.save(spittle);
+      feedService.broadcastSpittle(spittle);
+      return new Notification("Saved Spittle for user: " + principal.getName());
+  }
+```
+JavaScript客户端订阅目的地的代码：
+```js
+stomp.subscribe("/user/queue/notifications", handleNotification);
+```
+* 在内部，以“/user”作为前缀的目的地将会以特殊的方式进行处理。这种消息不会通过AnnotationMethodMessageHandler（像应用消息那样）来处理，也不会通过SimpleBrokerMessageHandler或StompBrokerRelayMessageHandler（像代理消息那样）来处理，以“/user”为前缀的消息将会通过UserDestinationMessageHandler进行处理
+* @SendToUser 表示要将消息发送给指定的用户，会自动在消息目的地前补上"/user"前缀。例如这里的消息目的地是/user/queue/notifications
+###### 4.3.2.2 为指定用户发送消息convertAndSendToUser
+除了convertAndSend()以外，SimpMessageSendingOperations 还提供了convertAndSendToUser()方法。按照名字就可以判断出来，convertAndSendToUser()方法能够让我们给特定用户发送消息。
+```java
+@MessageMapping("/singleShout")
+    public void singleUser(RequestMessage requestMessage, StompHeaderAccessor stompHeaderAccessor) {
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setContent(requestMessage.getContent());
+        responseMessage.setSender(requestMessage.getSender());
+        Principal user = stompHeaderAccessor.getUser();
+        simpMessageSendingOperations.convertAndSendToUser(user.getName(), "/queue/notifications", responseMessage);
+    }
+ ```
+* 如上，这里虽然我还是用了认证的信息得到用户名。但是，其实大可不必这样，因为 convertAndSendToUser 方法可以指定要发送给哪个用户。也就是说，完全可以把用户名的当作一个参数传递给控制器方法，从而绕过身份认证！convertAndSendToUser 方法最终会把消息发送到 /user/username/queue/notifications 目的地上。也就是前端订阅了/user/queue/notifications的客户端能消费到
