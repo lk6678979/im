@@ -10,27 +10,29 @@ STOMP 的消息根据前缀的不同分为三种。如下，
 * 使用setUserDestinationPrefix方法申明的前缀url，会将消息重路由到某个用户独有的目的地上。
 ![](https://github.com/lk6678979/image/blob/master/STOMP4.jpg)
 ```java
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.server.ServerHttpRequest;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
-import org.springframework.web.socket.WebSocketHandler;
+import org.springframework.web.socket.config.annotation.AbstractWebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
-import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
-import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
-import java.security.Principal;
-import java.util.Map;
+import org.springframework.web.socket.server.HandshakeInterceptor;
+import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
 
 /**
  * 通过EnableWebSocketMessageBroker 开启使用STOMP协议来传输基于代理(message broker)的消息,
- * 此时使用@MessageMapping 就像支持@RequestMapping一样。
  * 写在前面：客户端如何注册？
  * 1.客户端API会先登录
  * 2.然后客户端使用subscribe方法来订阅目的地，这个过程后台不用管，框架自己实现
  */
 @Configuration
 @EnableWebSocketMessageBroker
-public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+public class WebSocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
+
+
+    @Autowired
+    private ConnectParamInterceptor getHeaderParamInterceptor;
 
     /**
      * 将 "/stomp" 注册为一个 STOMP 端点。这个路径与之前发送和接收消息的目的地路径有所
@@ -39,30 +41,22 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/stomp")
-                .setHandshakeHandler(new DefaultHandshakeHandler() {
-                    @Override
-                    protected Principal determineUser(ServerHttpRequest request, WebSocketHandler wsHandler, Map<String, Object> attributes) {
-                        //将客户端标识封装为Principal对象，从而让服务端能通过getName()方法找到指定客户端
-                        Object o = attributes.get("name");
-                        return new FastPrincipal(o.toString());
-                    }
-                })
-                //添加socket拦截器，用于从请求中获取客户端标识参数
-                .addInterceptors(new HandleShakeInterceptors()).withSockJS();
+                //添加socket拦截器，用于握手前和握手后调用
+                .addInterceptors(new HandleShakeInterceptors()).addInterceptors(new HttpSessionHandshakeInterceptor()).withSockJS();
 
     }
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         /**
-         * 客户端发送消息的请求的前缀，客户端使用这个前端的url往服务器发送消息
+         * 客户端发送消息的请求的前缀，客户端使用这个前缀的url往服务器发送消息
          * 当客户发送   前缀/url   的请求时，消息会被路由到带有@MessageMapping("/url") 或 @SubscribeMapping("/url")注解的方法中
          * 使用 @MessageMapping 或者 @SubscribeMapping 注解可以处理客户端发送过来的消息，并选择方法是否有返回值。
          * 如果 @MessageMapping 注解的控制器方法有返回值的话，返回值会被发送到消息代理，只不过会添加上"/topic"前缀。可以使用@SendTo 重写消息目的地；
          * 如果 @SubscribeMapping 注解的控制器方法有返回值的话，返回值会直接发送到客户端，不经过代理。如果加上@SendTo 注解的话，则要经过消息代理。
          * 例如：客户端发送请求https://host:ip/app/demo,那么用来路由的url就是 /demo
          */
-        registry.setApplicationDestinationPrefixes("/app","foo");//这里翻译过来的意思是APP发送请求到服务端的目的地的前缀，也就是需要服务端处理的请求的前缀
+        registry.setApplicationDestinationPrefixes("/app", "foo");//这里翻译过来的意思是APP发送请求到服务端的目的地的前缀，也就是需要服务端处理的请求的前缀
         //客户端订阅消息的请求前缀，topic一般用于广播推送，queue用于点对点推送
         /**
          * 定义了一个客户端订阅地址的前缀信息（告诉服务器，我要订阅哪个目的地的url前缀，当该目的地有消息时，会主动推送给客户端）
@@ -83,18 +77,110 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
          * */
     }
 
-    //定义一个自己的权限验证类
-    class FastPrincipal implements Principal {
+    /**
+     * 客户端通过client连接服务器时绑定通道的处理逻辑
+     * 这里是添加了一个拦截器，拦截器中可以针对连接、取消连接、发送消息都客户端行为进行逻辑处理
+     *
+     * @param registration
+     */
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.interceptors(getHeaderParamInterceptor);
+    }
+}
 
-        private final String name;
+```
+* 握手拦截器
+```java
+import org.springframework.web.socket.server.HandshakeInterceptor;
+import java.util.Map;
+import org.springframework.http.server.ServerHttpRequest;
+import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.web.socket.WebSocketHandler;
 
-        public FastPrincipal(String name) {
-            this.name = name;
+/**
+ * 握手前和握手后调用
+ */
+public class HandleShakeInterceptors implements HandshakeInterceptor {
+
+    /**
+     * 在握手之前执行该方法, 继续握手返回true, 中断握手返回false.
+     *
+     * @param request
+     * @param response
+     * @param wsHandler
+     * @param attributes
+     * @return
+     * @throws Exception
+     */
+    @Override
+    public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
+                                   WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
+        System.out.println("==========开始握手==========");
+        return true;
+    }
+
+    /**
+     * 在握手之后执行该方法. 无论是否握手成功都指明了响应状态码和相应头.
+     *
+     * @param request
+     * @param response
+     * @param wsHandler
+     * @param exception
+     */
+    @Override
+    public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response,
+                               WebSocketHandler wsHandler, Exception exception) {
+        System.out.println("==========结束握手==========");
+    }
+}
+```
+* 消息处理前的拦截器（这份代码中用来处理登录和登出）
+```java
+package com.owp.boot.stomp;
+
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.messaging.simp.stomp.StompCommand;
+import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
+import org.springframework.messaging.support.ChannelInterceptorAdapter;
+import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.stereotype.Component;
+
+import java.util.LinkedList;
+import java.util.Map;
+
+@Component
+public class ConnectParamInterceptor extends ChannelInterceptorAdapter {
+
+    /**
+     * 消息发送前，在里的逻辑是在连接前
+     */
+    @Override
+    public Message<?> preSend(Message<?> message, MessageChannel channel) {
+        StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+        //处理客户端发起连接的场景
+        if (StompCommand.CONNECT.equals(accessor.getCommand())) {
+            Object raw = message.getHeaders().get(SimpMessageHeaderAccessor.NATIVE_HEADERS);
+            //这里也可以让前端传token校验
+            if (raw instanceof Map) {
+                Object usernameObj = ((Map) raw).get("username");
+                Object passwordObj = ((Map) raw).get("password");
+                if (usernameObj instanceof LinkedList && passwordObj instanceof LinkedList) {
+                    String username = ((LinkedList) usernameObj).get(0).toString();
+                    String password = ((LinkedList) passwordObj).get(0).toString();
+                    // 设置当前访问的认证用户
+                    accessor.setUser(new FastPrincipal(username));
+                } else {
+                    return null;//返回null，则登录不成功
+                }
+            }
         }
-
-        public String getName() {
-            return name;
+        if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
+            System.out.println("==========登出==========");
         }
+        return message;
     }
 }
 ```
@@ -104,16 +190,18 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 public class RequestMessage {
 
     private String sender;//消息发送者
-    private String room;//房间号
-    private String type;//消息类型
+    private String receiver;//接受者
+    private String topic;//主题
+    private String type;//消息类型，1：点对点，2：主题订阅
     private String content;//消息内容
 
     public RequestMessage() {
     }
 
-    public RequestMessage(String sender, String room, String type, String content) {
+    public RequestMessage(String sender, String receiver, String topic, String type, String content) {
         this.sender = sender;
-        this.room = room;
+        this.receiver = receiver;
+        this.topic = topic;
         this.type = type;
         this.content = content;
     }
@@ -123,9 +211,6 @@ public class RequestMessage {
         return sender;
     }
 
-    public String getRoom() {
-        return room;
-    }
 
     public String getType() {
         return type;
@@ -135,13 +220,8 @@ public class RequestMessage {
         return content;
     }
 
-
     public void setSender(String sender) {
         this.sender = sender;
-    }
-
-    public void setReceiver(String room) {
-        this.room = room;
     }
 
     public void setType(String type) {
@@ -150,6 +230,22 @@ public class RequestMessage {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getReceiver() {
+        return receiver;
+    }
+
+    public void setReceiver(String receiver) {
+        this.receiver = receiver;
+    }
+
+    public String getTopic() {
+        return topic;
+    }
+
+    public void setTopic(String topic) {
+        this.topic = topic;
     }
 }
 ```
@@ -278,71 +374,63 @@ public class FastPrincipal implements Principal {
     }
 }
 ```
-* 在注册接口中返回一个Principal,即给客户端绑定了这个Principal
+* 添加一个连接绑定通道时触发的拦截器,在拦截器中处理客户端连接的场景，可以获取入参，进行用户授权认证，并最终绑定Principal
 ```java
  /**
-     * 将 "/stomp" 注册为一个 STOMP 端点。这个路径与之前发送和接收消息的目的地路径有所
-     * 不同。这是一个端点，客户端在订阅或发布消息到目的地路径前，要连接到该端点。
+     * 客户端通过client连接服务器时绑定通道的处理逻辑
+     * 这里是添加了一个拦截器，拦截器中可以针对连接、取消连接、发送消息都客户端行为进行逻辑处理
+     *
+     * @param registration
      */
     @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/stomp")
-                .setHandshakeHandler(new DefaultHandshakeHandler() {
-                    @Override
-                    protected Principal determineUser(ServerHttpRequest request, WebSocketHandler wsHandler, Map<String, Object> attributes) {
-                        //将客户端标识封装为Principal对象，从而让服务端能通过getName()方法找到指定客户端
-                        Object o = attributes.get("name");
-                        return new FastPrincipal(o.toString());
-                    }
-                })
-                //添加socket拦截器，用于从请求中获取客户端标识参数
-                .addInterceptors(new HandleShakeInterceptors()).withSockJS();
-
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.interceptors(getHeaderParamInterceptor);
     }
 ```
-* 在注册方法中addInterceptors添加握手拦截器，校验用户信息，返回true则握手成功，返回false则拒绝握手，注册失败
+* 拦截器实现如下：
 ```
-import org.springframework.web.socket.server.HandshakeInterceptor;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.messaging.simp.stomp.StompCommand;
+import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
+import org.springframework.messaging.support.ChannelInterceptorAdapter;
+import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.stereotype.Component;
+import java.util.LinkedList;
 import java.util.Map;
-import org.springframework.http.server.ServerHttpRequest;
-import org.springframework.http.server.ServerHttpResponse;
-import org.springframework.http.server.ServletServerHttpRequest;
-import org.springframework.web.socket.WebSocketHandler;
 
-public class HandleShakeInterceptors implements HandshakeInterceptor {
+@Component
+public class ConnectParamInterceptor extends ChannelInterceptorAdapter {
 
     /**
-     * 在握手之前执行该方法, 继续握手返回true, 中断握手返回false.
-     * 通过attributes参数设置WebSocketSession的属性
-     *
-     * @param request
-     * @param response
-     * @param wsHandler
-     * @param attributes
-     * @return
-     * @throws Exception
+     *  org.springframework.messaging.simp.stomp.StompCommand支持的场景都可以拦截
      */
     @Override
-    public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
-                                   WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
-        String name = ((ServletServerHttpRequest) request).getServletRequest().getParameter("name");
-        System.out.println("======================Interceptor" + name);
-        //保存客户端标识
-        attributes.put("name", "8888");
-        return true;
-    }
-    /**
-     * 在握手之后执行该方法. 无论是否握手成功都指明了响应状态码和相应头.
-     *
-     * @param request
-     * @param response
-     * @param wsHandler
-     * @param exception
-     */
-    @Override
-    public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response,
-                               WebSocketHandler wsHandler, Exception exception) {
-
+    public Message<?> preSend(Message<?> message, MessageChannel channel) {
+        StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+        //处理客户端发起连接的场景
+        if (StompCommand.CONNECT.equals(accessor.getCommand())) {
+            Object raw = message.getHeaders().get(SimpMessageHeaderAccessor.NATIVE_HEADERS);
+            //这里也可以让前端传token校验
+            if (raw instanceof Map) {
+                Object usernameObj = ((Map) raw).get("username");
+                Object passwordObj = ((Map) raw).get("password");
+                if (usernameObj instanceof LinkedList && passwordObj instanceof LinkedList) {
+                    String username = ((LinkedList) usernameObj).get(0).toString();
+                    String password = ((LinkedList) passwordObj).get(0).toString();
+                    // 设置当前访问的认证用户
+                    accessor.setUser(new FastPrincipal(username));
+                } else {
+                    return null;//返回null，则登录不成功
+                }
+            }
+        }
+        //客户端断开连接
+        if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
+            System.out.println("==========登出==========");
+        }
+        return message;
     }
 }
 ```
