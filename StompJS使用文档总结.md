@@ -23,7 +23,7 @@ npm install stompjs
 ```
 * 在node.js app中，require这个模块：
 
-```js
+```
 var Stomp = require('stompjs');
 ```
 
@@ -31,7 +31,7 @@ var Stomp = require('stompjs');
 
 ```js
 var client = Stomp.overTCP('localhost', 61613);
-```　　
+```
 
 * 为了与建立在Web Socket的STOMP broker连接，使用Stomp.overWS(url)方法。
 
@@ -203,9 +203,8 @@ client.debug = function(str) {
 };
 ```
 ## 十、使用情况
-```js
-* 1、var error_callback = function(error) {
+1、var error_callback = function(error) {
 　　第一次连接失败和连接后断开连接都会调用这个函数
-};
-```
-* 2、关闭控制台调试数据：设置client.debug = null 就可以，stompjs会去检测debug是否是函数，不是函数就不会调用输出
+};  
+
+2、关闭控制台调试数据：设置client.debug = null 就可以，stompjs会去检测debug是否是函数，不是函数就不会调用输出
