@@ -162,6 +162,7 @@ public class ConnectParamInterceptor extends ChannelInterceptorAdapter {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
         //处理客户端发起连接的场景
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
+            //从head中回去数据
             Object raw = message.getHeaders().get(SimpMessageHeaderAccessor.NATIVE_HEADERS);
             //这里也可以让前端传token校验
             if (raw instanceof Map) {
