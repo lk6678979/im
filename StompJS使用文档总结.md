@@ -1,77 +1,70 @@
 转自 https://www.cnblogs.com/goloving/p/10746378.html
-STOMP即Simple (or Streaming) Text Orientated Messaging Protocol，简单(流)文本定向消息协议，它提供了一个可互操作的连接格式，允许STOMP客户端与任意STOMP消息代理（Broker）进行交互。STOMP协议由于设计简单，易于开发客户端，因此在多种语言和多种平台上得到广泛地应用。
 
 ## 一、创建STOMP客户端
 
 ### 1、在web浏览器中使用普通的Web Socket
-
-　　STOMP javascript 客户端会使用ws://的URL与STOMP 服务端进行交互。
-
-　　为了创建一个STOMP客户端js对象，你需要使用Stomp.client(url)，而这个URL连接着服务端的WebSocket的代理
-
+STOMP javascript 客户端会使用ws://的URL与STOMP 服务端进行交互。  
+为了创建一个STOMP客户端js对象，你需要使用Stomp.client(url)，而这个URL连接着服务端的WebSocket的代理
+```js
 var url = "ws://localhost:61614/stomp";
 var client = Stomp.client(url);
 　　Stomp.client(url, protocols)也可以用来覆盖默认的subprotocols。第二个参数可以是一个字符串或一个字符串数组去指定多个subprotocols。
-
+```
 ### 2、在web浏览器中使用定制的WebSocket
-
-　　浏览器提供了不同的WebSocket的协议，一些老的浏览器不支持WebSocket的脚本或者使用别的名字。默认下，stomp.js会使用浏览器原生的WebSocket class去创建WebSocket。
-
-　　但是利用Stomp.over(ws)这个方法可以使用其他类型的WebSockets。这个方法得到一个满足WebSocket定义的对象。
-
-　　例如，可以使用由SockJS实现的Websocket。
-
-　　如果使用原生的Websockets就使用Stomp.client(url)，如果需要使用其他类型的Websocket（例如由SockJS包装的Websocket）就使用Stomp.over(ws)。除了初始化有差别，Stomp API在这两种方式下是相同的。
-
+* 浏览器提供了不同的WebSocket的协议，一些老的浏览器不支持WebSocket的脚本或者使用别的名字。默认下，stomp.js会使用浏览器原生的WebSocket class去创建WebSocket。
+* 但是利用Stomp.over(ws)这个方法可以使用其他类型的WebSockets。这个方法得到一个满足WebSocket定义的对象。例如，可以使用由SockJS实现的Websocket。
+* 如果使用原生的Websockets就使用Stomp.client(url)，如果需要使用其他类型的Websocket（例如由SockJS包装的Websocket）就使用Stomp.over(ws)。除了初始化有差别，Stomp API在这两种方式下是相同的。
 ### 3、在node.js程序中
 
-　　通过stompjs npm package同样也可以在node.js程序中使用这个库。
-
-　　npm install stompjs
-
-　　在node.js app中，require这个模块：var Stomp = require('stompjs');
-
-　　为了与建立在TCP socket的STOMP-broker连接，使用Stomp.overTCP(host, port)方法。
-
+* 通过stompjs npm package同样也可以在node.js程序中使用这个库。
+```js
+npm install stompjs
+```
+* 在node.js app中，require这个模块：
+```js
+var Stomp = require('stompjs');
+```
+* 为了与建立在TCP socket的STOMP-broker连接，使用Stomp.overTCP(host, port)方法。
+```js
 var client = Stomp.overTCP('localhost', 61613);
-　　为了与建立在Web Socket的STOMP broker连接，使用Stomp.overWS(url)方法。
-
+```　　
+* 为了与建立在Web Socket的STOMP broker连接，使用Stomp.overWS(url)方法。
+```js
 var client = Stomp.overWS('ws://localhost:61614/stomp');
-　　除了初始化不同，无论是浏览器还是node.js环境下，Stomp API都是相同的。
+```
+* 除了初始化不同，无论是浏览器还是node.js环境下，Stomp API都是相同的。
 
 ## 二、链接服务端
-
-　　一旦Stomp 客户端建立了，必须调用它的connect()方法去连接Stomp服务端进行验证。这个方法需要两个参数，用户的登录和密码凭证。这种情况下，客户端会使用Websocket打开连接，并发送一个CONNECT frame。
-
-　　这个连接是异步进行的：你不能保证当这个方法返回时是有效连接的。为了知道连接的结果，你需要一个回调函数。
-
+   一旦Stomp 客户端建立了，必须调用它的connect()方法去连接Stomp服务端进行验证。这个方法需要两个参数，用户的登录和密码凭证。这种情况下，客户端会使用Websocket打开连接，并发送一个CONNECT frame。  
+   这个连接是异步进行的：你不能保证当这个方法返回时是有效连接的。为了知道连接的结果，你需要一个回调函数。
+```js
 var connect_callback = function() {
     // called back after the client is connected and authenticated to the STOMP server
 };
-　　但是如果连接失败会发生什么呢？
-
-　　connect()方法接受一个可选的参数(error_callback)，当客户端不能连接上服务端时，这个回调函数error_callback会被调用，该函数的参数为对应的错误对象。
-
+```
+* 但是如果连接失败会发生什么呢？
+connect()方法接受一个可选的参数(error_callback)，当客户端不能连接上服务端时，这个回调函数error_callback会被调用，该函数的参数为对应的错误对象。  
+```js
 var error_callback = function(error) {
     // display the error's message header:
     alert(error.headers.message);
 };
-　　在大多数情况下，connect()方法可接受不同数量的参数来提供简单的API：
-
+```
+* 在大多数情况下，connect()方法可接受不同数量的参数来提供简单的API：
+```js
 client.connect(login, passcode, connectCallback);
 client.connect(login, passcode, connectCallback, errorCallback);
 client.connect(login, passcode, connectCallback, errorCallback, host);
-　　login和passcode是strings，connectCallback和errorCallback则是functions。（有些brokers（代理）还需要传递一个host（String类型）参数。）
-
-　　如果你需要附加一个headers头部，connect方法还接受其他两种形式的参数：
-
+login和passcode是strings，connectCallback和errorCallback则是functions。（有些brokers（代理）还需要传递一个host（String类型）参数。）
+```
+* 如果你需要附加一个headers头部，connect方法还接受其他两种形式的参数：
+```js
 client.connect(headers, connectCallback);
 client.connect(headers, connectCallback, errorCallback);
-　　header是map形式，connectCallback和errorCallback为functions。
-
-　　需要注意：如果你使用上述这种方式，你需要自行在headers添加login、passcode（甚至host）：
-
-复制代码
+```
+* header是map形式，connectCallback和errorCallback为functions。
+* 需要注意：如果你使用上述这种方式，你需要自行在headers添加login、passcode（甚至host）：
+```js
 var headers = {
     login: 'mylogin',
     passcode: 'mypasscode',
@@ -79,13 +72,14 @@ var headers = {
     'client-id': 'my-client-id'
 };
 client.connect(headers, connectCallback);
-复制代码
-　　断开连接时，调用disconnect方法，这个方法也是异步的，当断开成功后会接收一个额外的回调函数的参数。如下所示。
-
+```
+* 断开连接时，调用disconnect方法，这个方法也是异步的，当断开成功后会接收一个额外的回调函数的参数。如下所示。
+```js
 client.disconnect(function() {
     alert("See you next time!");
 };
-　　当客户端与服务端断开连接，就不会再发送或接收消息了。
+```
+* 当客户端与服务端断开连接，就不会再发送或接收消息了。
 
 ## 三、Heart-beating
 
