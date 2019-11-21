@@ -261,36 +261,132 @@ spring-websocket 定义了一个 SimpMessageSendingOperations 接口（或者使
 * @MessageMapping、@SubscribeMapping和@MessageException方法返回的值能够以消息的形式发送给入参Principal对象的认证用户（也就是当前请求的用户）；
 * SimpMessagingTemplate能够发送消息给特定用户。
 ##### 4.3.1 如何为每个客户端绑定Principal?
+* Principal是一个接口，我们需要实现自己的Principal
+```java
+import java.security.Principal;
 
+public class FastPrincipal implements Principal {
+
+    private final String name;
+
+    public FastPrincipal(String name) {
+        this.name = name;
+    }
+
+    public String getName() {
+        return name;
+    }
+}
+```
+* 在注册接口中返回一个Principal,即给客户端绑定了这个Principal
+```java
+ /**
+     * 将 "/stomp" 注册为一个 STOMP 端点。这个路径与之前发送和接收消息的目的地路径有所
+     * 不同。这是一个端点，客户端在订阅或发布消息到目的地路径前，要连接到该端点。
+     */
+    @Override
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/stomp")
+                .setHandshakeHandler(new DefaultHandshakeHandler() {
+                    @Override
+                    protected Principal determineUser(ServerHttpRequest request, WebSocketHandler wsHandler, Map<String, Object> attributes) {
+                        //将客户端标识封装为Principal对象，从而让服务端能通过getName()方法找到指定客户端
+                        Object o = attributes.get("name");
+                        return new FastPrincipal(o.toString());
+                    }
+                })
+                //添加socket拦截器，用于从请求中获取客户端标识参数
+                .addInterceptors(new HandleShakeInterceptors()).withSockJS();
+
+    }
+* 在注册方法中addInterceptors添加握手拦截器，校验用户信息，返回true则握手成功，返回false则拒绝握手，注册失败
+```
+import org.springframework.web.socket.server.HandshakeInterceptor;
+import java.util.Map;
+import org.springframework.http.server.ServerHttpRequest;
+import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.http.server.ServletServerHttpRequest;
+import org.springframework.web.socket.WebSocketHandler;
+
+public class HandleShakeInterceptors implements HandshakeInterceptor {
+
+    /**
+     * 在握手之前执行该方法, 继续握手返回true, 中断握手返回false.
+     * 通过attributes参数设置WebSocketSession的属性
+     *
+     * @param request
+     * @param response
+     * @param wsHandler
+     * @param attributes
+     * @return
+     * @throws Exception
+     */
+    @Override
+    public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
+                                   WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
+        String name = ((ServletServerHttpRequest) request).getServletRequest().getParameter("name");
+        System.out.println("======================Interceptor" + name);
+        //保存客户端标识
+        attributes.put("name", "8888");
+        return true;
+    }
+    /**
+     * 在握手之后执行该方法. 无论是否握手成功都指明了响应状态码和相应头.
+     *
+     * @param request
+     * @param response
+     * @param wsHandler
+     * @param exception
+     */
+    @Override
+    public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response,
+                               WebSocketHandler wsHandler, Exception exception) {
+
+    }
+}
+```
 ##### 4.3.2 在控制器中处理用户的消息
-在控制器的@MessageMapping或@SubscribeMapping方法中，处理消息时有两种方式了解用户信息。在处理器方法中，通过简单地添加一个Principal参数，这个方法就能知道用户是谁并利用该信息关注此用户相关的数据。除此之外，处理器方法还可以使用@SendToUser注解或者使用SimpMessageSendingOperations 接口的convertAndSendToUser方法，表明它的返回值要以消息的形式发送给某个认证用户的客户端（只发送给该客户端）。
+在控制器的@MessageMapping或@SubscribeMapping方法中，处理消息时有两种方式了解用户信息。
+* 在处理器方法中，通过简单地添加一个Principal参数，这个方法就能知道用户是谁并利用该信息关注此用户相关的数据。
+* 除此之外，处理器方法还可以使用@SendToUser注解或者使用SimpMessageSendingOperations 接口的convertAndSendToUser方法，表明它的返回值要以消息的形式发送给某个认证用户的客户端（只发送给该客户端）。
 ###### 4.3.2.1 基于@SendToUser注解和Principal参数
 ```java
-  @MessageMapping("/spittle")
-  @SendToUser("/queue/notifications")
-  public Notification handleSpittle(Principal principal, SpittleForm form) {
-      Spittle spittle = new Spittle(principal.getName(), form.getText(), new Date());
-      spittleRepo.save(spittle);
-      feedService.broadcastSpittle(spittle);
-      return new Notification("Saved Spittle for user: " + principal.getName());
-  }
+    @MessageMapping("/spittle")
+    @SendToUser("/queue/notifications")
+    public ResponseMessage handleSpittle(Principal principal, RequestMessage requestMessage) {
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setContent(requestMessage.getContent());
+        responseMessage.setSender(requestMessage.getSender());
+        return responseMessage;
+    }
 ```
 JavaScript客户端订阅目的地的代码：
 ```js
-stomp.subscribe("/user/queue/notifications", handleNotification);
+stomp.subscribe("/user/queue/notifications", requestMessage);
 ```
 * 在内部，以“/user”作为前缀的目的地将会以特殊的方式进行处理。这种消息不会通过AnnotationMethodMessageHandler（像应用消息那样）来处理，也不会通过SimpleBrokerMessageHandler或StompBrokerRelayMessageHandler（像代理消息那样）来处理，以“/user”为前缀的消息将会通过UserDestinationMessageHandler进行处理
-* @SendToUser 表示要将消息发送给指定的用户，会自动在消息目的地前补上"/user"前缀。例如这里的消息目的地是/user/queue/notifications
+* @SendToUser 表示要将消息发送给指定的用户，会自动在消息目的地前补上"/user"前缀。例如这里的消息目的地是/user/username/queue/notifications
 ###### 4.3.2.2 为指定用户发送消息convertAndSendToUser
 除了convertAndSend()以外，SimpMessageSendingOperations 还提供了convertAndSendToUser()方法。按照名字就可以判断出来，convertAndSendToUser()方法能够让我们给特定用户发送消息。
 ```java
-@MessageMapping("/singleShout")
+    @MessageMapping("/singleShout")
     public void singleUser(RequestMessage requestMessage, StompHeaderAccessor stompHeaderAccessor) {
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setContent(requestMessage.getContent());
         responseMessage.setSender(requestMessage.getSender());
         Principal user = stompHeaderAccessor.getUser();
-        simpMessageSendingOperations.convertAndSendToUser(user.getName(), "/queue/notifications", responseMessage);
+        simpMessagingTemplate.convertAndSendToUser(user.getName(), "/queue/notifications", responseMessage);
     }
  ```
 * 如上，这里虽然我还是用了认证的信息得到用户名。但是，其实大可不必这样，因为 convertAndSendToUser 方法可以指定要发送给哪个用户。也就是说，完全可以把用户名的当作一个参数传递给控制器方法，从而绕过身份认证！convertAndSendToUser 方法最终会把消息发送到 /user/username/queue/notifications 目的地上。也就是前端订阅了/user/queue/notifications的客户端能消费到
+#### 4.4 处理消息异常
+在处理消息的时候，有可能会出错并抛出异常。因为STOMP消息异步的特点，发送者可能永远也不会知道出现了错误。@MessageExceptionHandler标注的方法能够处理消息方法中所抛出的异常。我们可以把错误发送给用户特定的目的地上，然后用户从该目的地上订阅消息，从而用户就能知道自己出现了什么错误啦...
+```
+@MessageExceptionHandler(Exception.class)
+@SendToUser("/queue/errors")
+public Exception handleExceptions(Exception t){
+    t.printStackTrace();
+    return t;
+}
+```
+* @MessageExceptionHandler可以指定具体哪个异常
