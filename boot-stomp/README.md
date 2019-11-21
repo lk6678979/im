@@ -484,6 +484,6 @@ public Exception handleExceptions(Exception t){
 ```
 * @MessageExceptionHandler可以指定具体哪个异常
 ### 3. JS客户端实现
-链接
+https://github.com/lk6678979/im/blob/master/StompJS%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3%E6%80%BB%E7%BB%93.md
 ### 4. 前端html页面
 连接
