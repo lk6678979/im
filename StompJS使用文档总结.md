@@ -8,8 +8,9 @@ STOMP javascript 客户端会使用ws://的URL与STOMP 服务端进行交互。
 ```js
 var url = "ws://localhost:61614/stomp";
 var client = Stomp.client(url);
-　　Stomp.client(url, protocols)也可以用来覆盖默认的subprotocols。第二个参数可以是一个字符串或一个字符串数组去指定多个subprotocols。
+Stomp.client(url, protocols)
 ```
+也可以用来覆盖默认的subprotocols。第二个参数可以是一个字符串或一个字符串数组去指定多个subprotocols。
 ### 2、在web浏览器中使用定制的WebSocket
 * 浏览器提供了不同的WebSocket的协议，一些老的浏览器不支持WebSocket的脚本或者使用别的名字。默认下，stomp.js会使用浏览器原生的WebSocket class去创建WebSocket。
 * 但是利用Stomp.over(ws)这个方法可以使用其他类型的WebSockets。这个方法得到一个满足WebSocket定义的对象。例如，可以使用由SockJS实现的Websocket。
