@@ -213,7 +213,23 @@ public class ResponseMessage {
         return responseMessage;
     }
 ```
-* @MessageMapping 指定目的地是“/app/demo”（“/app”前缀是隐含的，因为我们将其配置为应用的目的地前缀）。
-* 方法接收一个Shout参数，因为Spring的某一个消息转换器会将STOMP消息的负载转换为Shout对象。Spring 4.0提供了几个消息转换器，作为其消息API的一部分：
+* @MessageMapping 指定的客户端请求目的地是“/app/demo”（“/app”前缀是隐含的，因为我们将其配置为应用的目的地前缀），会将方法的出参写到@SendTo指定的目的地中，订阅这个目的地的客户端能接收到消息
+* 方法接收一个RequestMessage参数，因为Spring的某一个消息转换器会将STOMP消息的负载转换为RequestMessage对象。Spring 4.0提供了几个消息转换器，作为其消息API的一部分：
 ![](https://github.com/lk6678979/image/blob/master/STOMP5.jpg)
 * 尤其注意，这个处理器方法有一个返回值，这个返回值并不是返回给客户端的，而是转发给消息代理的，如果客户端想要这个返回值的话，只能从消息代理订阅。@SendTo 注解重写了消息代理的目的地，如果不指定@SendTo，数据所发往的目的地会与触发处理器方法的目的地相同，只不过会添加上“/topic”前缀，这个例子中就是/topic/demo。
+#### 3.2 使用@SubscribeMapping
+```
+    /***
+     * 直接返回数据给客户端
+     */
+    @SubscribeMapping("/demo")
+    public ResponseMessage stompHandle3(RequestMessage requestMessage) {
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setContent(requestMessage.getContent());
+        responseMessage.setSender(requestMessage.getSender());
+        return responseMessage;
+    }
+```
+* @SubscribeMapping的主要应用场景是实现请求-回应模式。在请求-回应模式中，客户端订阅某一个目的地，然后预期在这个目的地上获得一个一次性的响应。
+* 使用了@SubscribeMapping注解，用这个方法来处理对“/app/demo”目的地的订阅（与@MessageMapping类似，“/app”是隐含的）。当处理这个订阅时，方法会产生一个输出的ResponseMessage对象并将其返回。然后，Shout对象会转换成一条消息，并且会按照客户端订阅时相同的目的地发送回客户端。
+* 如果你觉得这种请求-回应模式与HTTP GET的请求-响应模式里的关键区别在于HTTPGET请求是同步的，而订阅的请求-回应模式则是异步的，这样客户端能够在回应可用时再去处理，而不必等待。
