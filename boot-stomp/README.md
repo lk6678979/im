@@ -10,8 +10,6 @@ STOMP 的消息根据前缀的不同分为三种。如下，
 * 使用setUserDestinationPrefix方法申明的前缀url，会将消息重路由到某个用户独有的目的地上。
 ![](https://github.com/lk6678979/image/blob/master/STOMP4.jpg)
 ```java
-package com.owp.boot.stomp;
-
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -20,7 +18,6 @@ import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBr
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
-
 import java.security.Principal;
 import java.util.Map;
 
@@ -102,3 +99,131 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 }
 ```
 ### 2、编写写应用接收消息和发送消息实体类
+#### 2.1 客户端发送消息的请求类
+```java
+public class RequestMessage {
+
+    private String sender;//消息发送者
+    private String room;//房间号
+    private String type;//消息类型
+    private String content;//消息内容
+
+    public RequestMessage() {
+    }
+
+    public RequestMessage(String sender, String room, String type, String content) {
+        this.sender = sender;
+        this.room = room;
+        this.type = type;
+        this.content = content;
+    }
+
+
+    public String getSender() {
+        return sender;
+    }
+
+    public String getRoom() {
+        return room;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+
+    public void setSender(String sender) {
+        this.sender = sender;
+    }
+
+    public void setReceiver(String room) {
+        this.room = room;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+}
+```
+#### 2.2 服务端发送给客户端消息的响应类
+```java
+public class ResponseMessage {
+
+    private String sender;//发送者
+    private String type;//类型
+    private String content;//内容
+
+    public ResponseMessage() {
+    }
+
+    public ResponseMessage(String sender, String type, String content) {
+        this.sender = sender;
+        this.type = type;
+        this.content = content;
+    }
+
+    public String getSender() {
+        return sender;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+
+    public void setSender(String sender) {
+        this.sender = sender;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+}
+```
+### 3、 处理来自客户端的STOMP消息
+服务端处理客户端发来的STOMP消息，主要使用 @MessageMapping 或者 @SubscribeMapping
+#### 3.1 使用@MessageMapping
+```java
+    @Autowired
+    SimpMessagingTemplate simpMessagingTemplate;
+
+    /**
+     * 不实用@SendTo，使用SimpMessagingTemplate发送消息
+     */
+    @MessageMapping("/demo")
+    public void stompHandle(RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setContent(requestMessage.getContent());
+        responseMessage.setSender(requestMessage.getSender());
+        simpMessagingTemplate.convertAndSend("/topic/demo", responseMessage);
+    }
+
+    /**
+     * 使用@SendTo方法指定消息的目的地
+     * 如果不指定@SendTo，数据所发往的目的地会与触发处理器方法的目的地相同，只不过会添加上“/topic”前缀，这个例子中就是/topic/demo2
+     */
+    @MessageMapping("/demo2")
+    @SendTo("/topic/demo")
+    public ResponseMessage stompHandle2(RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setContent(requestMessage.getContent());
+        responseMessage.setSender(requestMessage.getSender());
+        return responseMessage;
+    }
+```
