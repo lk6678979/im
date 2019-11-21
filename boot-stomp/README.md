@@ -345,10 +345,12 @@ spring-websocket 定义了一个 SimpMessageSendingOperations 接口（或者使
      * 不实用@SendTo，使用SimpMessagingTemplate发送消息
      */
     @MessageMapping("/demo")
-    public void stompHandle(RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
+    public void stompHandle(Principal principal, RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
+        String sender = principal.getName();
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setContent(requestMessage.getContent());
-        responseMessage.setSender(requestMessage.getSender());
+        responseMessage.setSender(sender);
+        //目的地要写全路径，不能省略前缀
         simpMessagingTemplate.convertAndSend("/topic/demo", responseMessage);
     }
 ```
@@ -465,6 +467,7 @@ stomp.subscribe("/user/queue/notifications", requestMessage);
         responseMessage.setContent(requestMessage.getContent());
         responseMessage.setSender(requestMessage.getSender());
         Principal user = stompHeaderAccessor.getUser();
+        //目的地不要加registry.setUserDestinationPrefix设置的前缀
         simpMessagingTemplate.convertAndSendToUser(user.getName(), "/queue/notifications", responseMessage);
     }
  ```
@@ -480,3 +483,7 @@ public Exception handleExceptions(Exception t){
 }
 ```
 * @MessageExceptionHandler可以指定具体哪个异常
+### 3. JS客户端实现
+链接
+### 4. 前端html页面
+连接
