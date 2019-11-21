@@ -200,25 +200,11 @@ public class ResponseMessage {
 服务端处理客户端发来的STOMP消息，主要使用 @MessageMapping 或者 @SubscribeMapping
 #### 3.1 使用@MessageMapping
 ```java
-    @Autowired
-    SimpMessagingTemplate simpMessagingTemplate;
-
-    /**
-     * 不实用@SendTo，使用SimpMessagingTemplate发送消息
-     */
-    @MessageMapping("/demo")
-    public void stompHandle(RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
-        ResponseMessage responseMessage = new ResponseMessage();
-        responseMessage.setContent(requestMessage.getContent());
-        responseMessage.setSender(requestMessage.getSender());
-        simpMessagingTemplate.convertAndSend("/topic/demo", responseMessage);
-    }
-
     /**
      * 使用@SendTo方法指定消息的目的地
-     * 如果不指定@SendTo，数据所发往的目的地会与触发处理器方法的目的地相同，只不过会添加上“/topic”前缀，这个例子中就是/topic/demo2
+     * 如果不指定@SendTo，数据所发往的目的地会与触发处理器方法的目的地相同，只不过会添加上“/topic”前缀，这个例子中就是/topic/demo
      */
-    @MessageMapping("/demo2")
+    @MessageMapping("/demo")
     @SendTo("/topic/demo")
     public ResponseMessage stompHandle2(RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
         ResponseMessage responseMessage = new ResponseMessage();
@@ -227,3 +213,6 @@ public class ResponseMessage {
         return responseMessage;
     }
 ```
+* @MessageMapping 指定目的地是“/app/demo”（“/app”前缀是隐含的，因为我们将其配置为应用的目的地前缀）。
+* 方法接收一个Shout参数，因为Spring的某一个消息转换器会将STOMP消息的负载转换为Shout对象。Spring 4.0提供了几个消息转换器，作为其消息API的一部分：
+![](https://github.com/lk6678979/image/blob/master/STOMP5.jpg)
