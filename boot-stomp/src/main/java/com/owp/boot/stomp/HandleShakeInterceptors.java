@@ -6,14 +6,15 @@ import java.util.Map;
 
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
-import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.web.socket.WebSocketHandler;
 
+/**
+ * 握手前和握手后调用
+ */
 public class HandleShakeInterceptors implements HandshakeInterceptor {
 
     /**
      * 在握手之前执行该方法, 继续握手返回true, 中断握手返回false.
-     * 通过attributes参数设置WebSocketSession的属性
      *
      * @param request
      * @param response
@@ -25,10 +26,7 @@ public class HandleShakeInterceptors implements HandshakeInterceptor {
     @Override
     public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
                                    WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
-        String name = ((ServletServerHttpRequest) request).getServletRequest().getParameter("name");
-        System.out.println("======================Interceptor" + name);
-        //保存客户端标识
-        attributes.put("name", "8888");
+        System.out.println("==========开始握手==========");
         return true;
     }
 
@@ -43,7 +41,7 @@ public class HandleShakeInterceptors implements HandshakeInterceptor {
     @Override
     public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response,
                                WebSocketHandler wsHandler, Exception exception) {
-
+        System.out.println("==========结束握手==========");
     }
 
 }
