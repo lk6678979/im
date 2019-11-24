@@ -2,7 +2,8 @@
 ## 一、SpringBoot+STOMP内存版本
 https://github.com/lk6678979/im/blob/master/boot-stomp/README.md
 ## 二、RabbitMq插件
-### 在RabbitMq的服务器上执行：
+#### 启动RabbiutMq的Stomp插件
+* 在RabbitMq的服务器上执行：
 ```shell
 sudo rabbitmq-plugins enable rabbitmq_web_stomp
 ```
@@ -10,15 +11,25 @@ sudo rabbitmq-plugins enable rabbitmq_web_stomp
 ```shell
 ./rabbitmq-plugins enable rabbitmq_web_stomp
 ```
-### 执行完后，在RabbitMq的WEB端可以看到Stomp协议端口
-## 二、服务端实现
-### 1、启用STOMP功能
-STOMP 的消息根据前缀的不同分为三种。如下，
-* 使用setApplicationDestinationPrefixes方法申明的前缀url(可以设置多个)，该前缀的客户端请求都会被路由到带有@MessageMapping 或 @SubscribeMapping 注解的方法中，可以理解为服务端处理客户端请求的目的地方法的前缀；
-* 使用setApplicationDestinationPrefixes方法的例子：设置前缀为/app，当客户发送/app/demo的请求时，消息会被路由到带有@MessageMapping("/demo") 或 @SubscribeMapping("/demo")注解的方法中
-* 使用enableSimpleBroker方法申明的前缀url，定义客户端可订阅的STOMP代理的消息目的地前缀，发送到STOMP代理消息目的地中的消息会推送给订阅的客户端，根据你所选择的STOMP代理不同，目的地的可选前缀也会有所限制；
-* 使用setUserDestinationPrefix方法申明的前缀url，会将消息重路由到某个用户独有的目的地上。
-![](https://github.com/lk6678979/image/blob/master/STOMP4.jpg)
+#### 执行完后，在RabbitMq的WEB端可以看到Stomp协议端口
+![](https://github.com/lk6678979/image/blob/master/STOMP6.png)
+## 三、服务端实现
+### 1、添加Pom依赖
+```xml
+<dependencies>
+        <!--websocket依赖-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+        <dependency>
+             <groupId>org.springframework.boot</groupId>
+             <artifactId>spring-boot-starter-amqp</artifactId>
+         </dependency>
+    </dependencies>
+```
+### 1、启用STOMP功能（在内存队列半的基础上修改）
+重写registerStompEndpoints和configureMessageBroker方法，替换内存模式的配置为rabbitmq配置
 ```java
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
@@ -27,7 +38,6 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.AbstractWebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
-import org.springframework.web.socket.server.HandshakeInterceptor;
 import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
 
 /**
@@ -38,7 +48,7 @@ import org.springframework.web.socket.server.support.HttpSessionHandshakeInterce
  */
 @Configuration
 @EnableWebSocketMessageBroker
-public class WebSocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
+public class WebSocketRabbitMqConfig extends AbstractWebSocketMessageBrokerConfigurer {
 
 
     @Autowired
@@ -52,7 +62,7 @@ public class WebSocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/stomp")
                 //添加socket拦截器，用于握手前和握手后调用
-                .addInterceptors(new HandleShakeInterceptors()).addInterceptors(new HttpSessionHandshakeInterceptor()).withSockJS();
+                .addInterceptors(new HandleShakeInterceptors()).withSockJS();
 
     }
 
@@ -67,24 +77,22 @@ public class WebSocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
          * 例如：客户端发送请求https://host:ip/app/demo,那么用来路由的url就是 /demo
          */
         registry.setApplicationDestinationPrefixes("/app", "foo");//这里翻译过来的意思是APP发送请求到服务端的目的地的前缀，也就是需要服务端处理的请求的前缀
-        //客户端订阅消息的请求前缀，topic一般用于广播推送，queue用于点对点推送
         /**
          * 定义了一个客户端订阅地址的前缀信息（告诉服务器，我要订阅哪个目的地的url前缀，当该目的地有消息时，会主动推送给客户端）
          * topic一般用于广播推送，queue用于点对点推送（你也可以不用这2个，随意指定）
          * 例如客户端发送请求https://host:ip/topic/order，那么客户端实际订阅的目的地是/topic/order
          * 客户端使用subscribe方法来订阅目的地，这个过程后台不用管，框架自己实现
          */
-        registry.enableSimpleBroker("/topic", "/queue");
-        //点对点使用的订阅前缀（客户端订阅路径上会体现出来），不设置的话，默认也是/user/
-        registry.setUserDestinationPrefix("/user");
-        /*  如果是用自己的消息中间件，则按照下面的去配置，删除上面的配置
-         *   registry.enableStompBrokerRelay("/topic", "/queue")
-            .setRelayHost("rabbit.someotherserver")
-            .setRelayPort(62623)
-            .setClientLogin("marcopolo")
-            .setClientPasscode("letmein01");
-            registry.setApplicationDestinationPrefixes("/app", "/foo");
-         * */
+        registry.enableStompBrokerRelay("/topic", "/queue","/temp-queue","/exchange","/amq/queue","/reply-queue/.")
+                .setRelayHost("kafka01")
+                .setVirtualHost("/test-im")
+                .setRelayPort(61613)
+                .setClientLogin("sziov")
+                .setClientPasscode("sziov")
+                .setSystemLogin("sziov")
+                .setSystemPasscode("sziov")
+                .setSystemHeartbeatSendInterval(5000)
+                .setSystemHeartbeatReceiveInterval(4000);
     }
 
     /**
@@ -98,221 +106,37 @@ public class WebSocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
         registration.interceptors(getHeaderParamInterceptor);
     }
 }
-
 ```
-* 握手拦截器
+### 2、 目的地路径说明
+WebSocketRabbitMQMessageBrokerConfigurer中我们需要配置消息代理的前缀。在RabbitMQ中合法的目的前缀：/temp-queue, /exchange, /topic, /queue, /amq/queue, /reply-queue/. 我们这里演示以上后4个的用法
+* 注意：虚拟机需要先在MQ中提前创建好
+#### 2.1  /exchange/exchangename/[routing_key]
+通过交换机订阅/发布消息，交换机需要手动创建，参数说明
+* /exchange：固定值(标志位，标识后面是交换机名称)
+* exchangename：交换机名称
+* [routing_key]：路由键，可选
+    对于接收者端，该 destination 会创建一个唯一的、自动删除的随机queue， 并根据 routing_key将该 queue 绑定到所给的 exchangename，实现对该队列的消息订阅。
+对于发送者端，消息就会被发送到定义的 exchangename中，并且指定了 routing_key。
 ```java
-import org.springframework.web.socket.server.HandshakeInterceptor;
-import java.util.Map;
-import org.springframework.http.server.ServerHttpRequest;
-import org.springframework.http.server.ServerHttpResponse;
-import org.springframework.web.socket.WebSocketHandler;
-
-/**
- * 握手前和握手后调用
- */
-public class HandleShakeInterceptors implements HandshakeInterceptor {
-
-    /**
-     * 在握手之前执行该方法, 继续握手返回true, 中断握手返回false.
-     *
-     * @param request
-     * @param response
-     * @param wsHandler
-     * @param attributes
-     * @return
-     * @throws Exception
+ /**
+     * 不实用@SendTo，使用SimpMessagingTemplate发送消息
      */
-    @Override
-    public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
-                                   WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
-        System.out.println("==========开始握手==========");
-        return true;
+    @MessageMapping("/rdemo")
+    public void stompHandle(Principal principal, RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
+        String sender = principal.getName();
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setContent(requestMessage.getContent());
+        responseMessage.setSender(sender);
+        //目的地要写全路径，不能省略前缀
+        simpMessagingTemplate.convertAndSend("/exchange/stomp-rabbitmq/demo", responseMessage);
     }
 
-    /**
-     * 在握手之后执行该方法. 无论是否握手成功都指明了响应状态码和相应头.
-     *
-     * @param request
-     * @param response
-     * @param wsHandler
-     * @param exception
-     */
-    @Override
-    public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response,
-                               WebSocketHandler wsHandler, Exception exception) {
-        System.out.println("==========结束握手==========");
-    }
-}
-```
-* 消息处理前的拦截器（这份代码中用来处理登录和登出）
-```java
-package com.owp.boot.stomp;
-
-import org.springframework.messaging.Message;
-import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
-import org.springframework.messaging.simp.stomp.StompCommand;
-import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
-import org.springframework.messaging.support.ChannelInterceptorAdapter;
-import org.springframework.messaging.support.MessageHeaderAccessor;
-import org.springframework.stereotype.Component;
-
-import java.util.LinkedList;
-import java.util.Map;
-
-@Component
-public class ConnectParamInterceptor extends ChannelInterceptorAdapter {
-
-    /**
-     * 消息发送前，在里的逻辑是在连接前
-     */
-    @Override
-    public Message<?> preSend(Message<?> message, MessageChannel channel) {
-        StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
-        //处理客户端发起连接的场景
-        if (StompCommand.CONNECT.equals(accessor.getCommand())) {
-            //从head中回去数据
-            Object raw = message.getHeaders().get(SimpMessageHeaderAccessor.NATIVE_HEADERS);
-            //这里也可以让前端传token校验
-            if (raw instanceof Map) {
-                Object usernameObj = ((Map) raw).get("username");
-                Object passwordObj = ((Map) raw).get("password");
-                if (usernameObj instanceof LinkedList && passwordObj instanceof LinkedList) {
-                    String username = ((LinkedList) usernameObj).get(0).toString();
-                    String password = ((LinkedList) passwordObj).get(0).toString();
-                    // 设置当前访问的认证用户
-                    accessor.setUser(new FastPrincipal(username));
-                } else {
-                    return null;//返回null，则登录不成功
-                }
-            }
-        }
-        if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
-            System.out.println("==========登出==========");
-        }
-        return message;
-    }
-}
-```
-### 2、编写写应用接收消息和发送消息实体类
-#### 2.1 客户端发送消息的请求类
-```java
-public class RequestMessage {
-
-    private String sender;//消息发送者
-    private String receiver;//接受者
-    private String topic;//主题
-    private String type;//消息类型，1：点对点，2：主题订阅
-    private String content;//消息内容
-
-    public RequestMessage() {
-    }
-
-    public RequestMessage(String sender, String receiver, String topic, String type, String content) {
-        this.sender = sender;
-        this.receiver = receiver;
-        this.topic = topic;
-        this.type = type;
-        this.content = content;
-    }
-
-
-    public String getSender() {
-        return sender;
-    }
-
-
-    public String getType() {
-        return type;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setSender(String sender) {
-        this.sender = sender;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
-    }
-
-    public String getReceiver() {
-        return receiver;
-    }
-
-    public void setReceiver(String receiver) {
-        this.receiver = receiver;
-    }
-
-    public String getTopic() {
-        return topic;
-    }
-
-    public void setTopic(String topic) {
-        this.topic = topic;
-    }
-}
-```
-#### 2.2 服务端发送给客户端消息的响应类
-```java
-public class ResponseMessage {
-
-    private String sender;//发送者
-    private String type;//类型
-    private String content;//内容
-
-    public ResponseMessage() {
-    }
-
-    public ResponseMessage(String sender, String type, String content) {
-        this.sender = sender;
-        this.type = type;
-        this.content = content;
-    }
-
-    public String getSender() {
-        return sender;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-
-    public void setSender(String sender) {
-        this.sender = sender;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
-    }
-}
-```
-### 3、 处理来自客户端的STOMP消息
-服务端处理客户端发来的STOMP消息，主要使用 @MessageMapping 或者 @SubscribeMapping
-#### 3.1 使用@MessageMapping
-```java
     /**
      * 使用@SendTo方法指定消息的目的地
-     * 如果不指定@SendTo，数据所发往的目的地会与触发处理器方法的目的地相同，只不过会添加上“/topic”前缀，这个例子中就是/topic/demo
+     * 如果不指定@SendTo，数据所发往的目的地会与触发处理器方法的目的地相同，只不过会添加上“/topic”前缀，这个例子中就是/topic/demo2
      */
-    @MessageMapping("/demo")
-    @SendTo("/topic/demo")
+    @MessageMapping("/rdemo2")
+    @SendTo("/exchange/stomp-rabbitmq/demo")
     public ResponseMessage stompHandle2(RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setContent(requestMessage.getContent());
@@ -320,9 +144,7 @@ public class ResponseMessage {
         return responseMessage;
     }
 ```
-* @MessageMapping 指定的客户端请求目的地是“/app/demo”（“/app”前缀是隐含的，因为我们将其配置为应用的目的地前缀），会将方法的出参写到@SendTo指定的目的地中，订阅这个目的地的客户端能接收到消息
-* 方法接收一个RequestMessage参数，因为Spring的某一个消息转换器会将STOMP消息的负载转换为RequestMessage对象。Spring 4.0提供了几个消息转换器，作为其消息API的一部分：
-![](https://github.com/lk6678979/image/blob/master/STOMP5.jpg)
+
 * 尤其注意，这个处理器方法有一个返回值，这个返回值并不是返回给客户端的，而是转发给消息代理的，如果客户端想要这个返回值的话，只能从消息代理订阅。@SendTo 注解重写了消息代理的目的地，如果不指定@SendTo，数据所发往的目的地会与触发处理器方法的目的地相同，只不过会添加上“/topic”前缀，这个例子中就是/topic/demo。
 #### 3.2 使用@SubscribeMapping
 ```
