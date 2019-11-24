@@ -11,5 +11,29 @@
 
     <artifactId>boot-stomp</artifactId>
 
+    <dependencies>
+        <!-- rabbitmq -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+        <!-- Stomp协议中使用RabbitMQ作为消息代理，所以还需要加入以下三个依赖 -->
+<!--        <dependency>-->
+<!--            <groupId>io.projectreactor</groupId>-->
+<!--            <artifactId>reactor-core</artifactId>-->
+<!--            <version>2.0.8.RELEASE</version>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>io.projectreactor</groupId>-->
+<!--            <artifactId>reactor-net</artifactId>-->
+<!--            <version>2.0.8.RELEASE</version>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>io.netty</groupId>-->
+<!--            <artifactId>netty-all</artifactId>-->
+<!--            <version>4.1.6.Final</version>-->
+<!--        </dependency>-->
+        <!-- Stomp协议中使用RabbitMQ作为消息代理，三个依赖结束 -->
+    </dependencies>
 
 </project>

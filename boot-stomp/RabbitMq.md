@@ -1,6 +1,16 @@
-# SpringBoot+STOMP实现实时通讯(内存队列模式，集群时无法使用)
-## 一、STOMP 简介
-https://github.com/lk6678979/im/blob/master/STOMP.md
+# SpringBoot+STOMP+RabbitMq实现实时通讯
+## 一、SpringBoot+STOMP内存版本
+https://github.com/lk6678979/im/blob/master/boot-stomp/README.md
+## 二、RabbitMq插件
+### 在RabbitMq的服务器上执行：
+```shell
+sudo rabbitmq-plugins enable rabbitmq_web_stomp
+```
+* 在RabbitMq的sbin目录下执行
+```shell
+./rabbitmq-plugins enable rabbitmq_web_stomp
+```
+### 执行完后，在RabbitMq的WEB端可以看到Stomp协议端口
 ## 二、服务端实现
 ### 1、启用STOMP功能
 STOMP 的消息根据前缀的不同分为三种。如下，
