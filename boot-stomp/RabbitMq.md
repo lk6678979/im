@@ -22,10 +22,36 @@ sudo rabbitmq-plugins enable rabbitmq_web_stomp
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
+               <!-- rabbitmq -->
         <dependency>
-             <groupId>org.springframework.boot</groupId>
-             <artifactId>spring-boot-starter-amqp</artifactId>
-         </dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.projectreactor.netty</groupId>
+            <artifactId>reactor-netty</artifactId>
+            <version>0.8.3.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>io.projectreactor.ipc</groupId>
+            <artifactId>reactor-netty</artifactId>
+            <version>0.7.3.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+            <version>3.2.12.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-net</artifactId>
+            <version>2.0.8.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <version>4.1.6.Final</version>
+        </dependency>
     </dependencies>
 ```
 ### 1、启用STOMP功能（在内存队列半的基础上修改）
@@ -108,7 +134,13 @@ public class WebSocketRabbitMqConfig extends AbstractWebSocketMessageBrokerConfi
 }
 ```
 ### 2、 目的地路径说明
-WebSocketRabbitMQMessageBrokerConfigurer中我们需要配置消息代理的前缀。在RabbitMQ中合法的目的前缀：/temp-queue, /exchange, /topic, /queue, /amq/queue, /reply-queue/. 我们这里演示以上后4个的用法
+WebSocketRabbitMQMessageBrokerConfigurer中我们需要配置消息代理的前缀。在RabbitMQ中合法的目的前缀：
+* /temp-queue
+* /exchange
+* /topic
+* /queue
+* /amq/queue
+* /reply-queue/. 
 * 注意：虚拟机需要先在MQ中提前创建好
 #### 2.1  /exchange/exchangename/[routing_key]
 通过交换机订阅/发布消息，交换机需要手动创建，参数说明
@@ -118,24 +150,11 @@ WebSocketRabbitMQMessageBrokerConfigurer中我们需要配置消息代理的前�
     对于接收者端，该 destination 会创建一个唯一的、自动删除的随机queue， 并根据 routing_key将该 queue 绑定到所给的 exchangename，实现对该队列的消息订阅。
 对于发送者端，消息就会被发送到定义的 exchangename中，并且指定了 routing_key。
 ```java
- /**
-     * 不实用@SendTo，使用SimpMessagingTemplate发送消息
-     */
-    @MessageMapping("/rdemo")
-    public void stompHandle(Principal principal, RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
-        String sender = principal.getName();
-        ResponseMessage responseMessage = new ResponseMessage();
-        responseMessage.setContent(requestMessage.getContent());
-        responseMessage.setSender(sender);
-        //目的地要写全路径，不能省略前缀
-        simpMessagingTemplate.convertAndSend("/exchange/stomp-rabbitmq/demo", responseMessage);
-    }
-
     /**
      * 使用@SendTo方法指定消息的目的地
      * 如果不指定@SendTo，数据所发往的目的地会与触发处理器方法的目的地相同，只不过会添加上“/topic”前缀，这个例子中就是/topic/demo2
      */
-    @MessageMapping("/rdemo2")
+    @MessageMapping("/rdemo")
     @SendTo("/exchange/stomp-rabbitmq/demo")
     public ResponseMessage stompHandle2(RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
         ResponseMessage responseMessage = new ResponseMessage();
@@ -144,8 +163,14 @@ WebSocketRabbitMQMessageBrokerConfigurer中我们需要配置消息代理的前�
         return responseMessage;
     }
 ```
+在这个过程中，系统做了哪些事情呢？
+* 对于接收者端，该 destination 会创建一个唯一的、自动删除的随机queue， 并根据 routing_key将该 queue 绑定到所给的 exchangename，实现对该队列的消息订阅。
+* 对于发送者端，消息就会被发送到定义的 exchangename中，并且指定了 routing_key。
+* mq截图：
+![](https://github.com/lk6678979/image/blob/master/STOMP7.jpg)
+![](https://github.com/lk6678979/image/blob/master/STOMP8.jpg)
+![](https://github.com/lk6678979/image/blob/master/STOMP9.jpg)
 
-* 尤其注意，这个处理器方法有一个返回值，这个返回值并不是返回给客户端的，而是转发给消息代理的，如果客户端想要这个返回值的话，只能从消息代理订阅。@SendTo 注解重写了消息代理的目的地，如果不指定@SendTo，数据所发往的目的地会与触发处理器方法的目的地相同，只不过会添加上“/topic”前缀，这个例子中就是/topic/demo。
 #### 3.2 使用@SubscribeMapping
 ```
     /***
