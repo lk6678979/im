@@ -169,176 +169,65 @@ WebSocketRabbitMQMessageBrokerConfigurer中我们需要配置消息代理的前�
 ![](https://github.com/lk6678979/image/blob/master/STOMP8.jpg)
 ![](https://github.com/lk6678979/image/blob/master/STOMP9.jpg)
 
-#### 3.2 使用@SubscribeMapping
-```
-    /***
-     * 直接返回数据给客户端
-     */
-    @SubscribeMapping("/demo")
-    public ResponseMessage stompHandle3(RequestMessage requestMessage) {
+#### 2.2  /queue/queuename
+使用默认交换机订阅/发布消息，默认由stomp自动创建一个持久化队列，参数说明
+* /queue：固定值
+* queuename：自动创建一个持久化队列
+```java
+    @MessageMapping("/rdemo3")
+    @SendTo("/queue/queuedemo")
+    public ResponseMessage stompHandle3(RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setContent(requestMessage.getContent());
         responseMessage.setSender(requestMessage.getSender());
         return responseMessage;
-    }
-```
-* @SubscribeMapping的主要应用场景是实现请求-回应模式。在请求-回应模式中，客户端订阅某一个目的地，然后预期在这个目的地上获得一个一次性的响应。
-* 使用了@SubscribeMapping注解，用这个方法来处理对“/app/demo”目的地的订阅（与@MessageMapping类似，“/app”是隐含的）。当处理这个订阅时，方法会产生一个输出的ResponseMessage对象并将其返回。然后，ResponseMessage对象会转换成一条消息，并且会按照客户端订阅时相同的目的地发送回客户端。
-* 如果你觉得这种请求-回应模式与HTTP GET的请求-响应模式里的关键区别在于HTTPGET请求是同步的，而订阅的请求-回应模式则是异步的，这样客户端能够在回应可用时再去处理，而不必等待。
-### 4、 发送消息到客户端
-#### 4.1 在处理消息之后发送消息
-* 正如前面看到的那样，使用 @MessageMapping 或者 @SubscribeMapping 注解可以处理客户端发送过来的消息，并选择方法是否有返回值。
-* 如果 @MessageMapping 注解的控制器方法有返回值的话，返回值会被发送到消息代理，只不过会添加上"/topic"前缀。可以使用@SendTo 重写消息目的地；
-* 如果 @SubscribeMapping 注解的控制器方法有返回值的话，返回值会直接发送到客户端，不经过代理。如果加上@SendTo 注解的话，则要经过消息代理。
-#### 4.2 在应用的任意地方发送消息
-spring-websocket 定义了一个 SimpMessageSendingOperations 接口（或者使用SimpMessagingTemplate ），可以实现自由的向任意目的地发送消息，并且订阅此目的地的所有用户都能收到消息。
-```java
-    @Autowired
-    private SimpMessagingTemplate simpMessagingTemplate;
-
-    /**
-     * 不实用@SendTo，使用SimpMessagingTemplate发送消息
-     */
-    @MessageMapping("/demo")
-    public void stompHandle(Principal principal, RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
-        String sender = principal.getName();
-        ResponseMessage responseMessage = new ResponseMessage();
-        responseMessage.setContent(requestMessage.getContent());
-        responseMessage.setSender(sender);
-        //目的地要写全路径，不能省略前缀
-        simpMessagingTemplate.convertAndSend("/topic/demo", responseMessage);
-    }
-```
-#### 4.3 为指定用户发送消息
-如果你知道用户是谁的话，那么就能处理与某个用户相关的消息，而不仅仅是与所有客户端相关联。我们可以使用Spring Security来认证用户，并为目标用户处理消息。在使用Spring和STOMP消息功能的时候，我们有三种方式利用认证用户：
-* @MessageMapping和@SubscribeMapping标注的方法能够使用Principal来获取认证用户(当前发送请求的用户）；
-* @MessageMapping、@SubscribeMapping和@MessageException方法返回的值能够以消息的形式发送给入参Principal对象的认证用户（也就是当前请求的用户）；
-* SimpMessagingTemplate能够发送消息给特定用户。
-##### 4.3.1 如何为每个客户端绑定Principal?
-* Principal是一个接口，我们需要实现自己的Principal
-```java
-import java.security.Principal;
-
-public class FastPrincipal implements Principal {
-
-    private final String name;
-
-    public FastPrincipal(String name) {
-        this.name = name;
-    }
-
-    public String getName() {
-        return name;
-    }
-}
-```
-* 添加一个连接绑定通道时触发的拦截器,在拦截器中处理客户端连接的场景，可以获取入参，进行用户授权认证，并最终绑定Principal
-```java
- /**
-     * 客户端通过client连接服务器时绑定通道的处理逻辑
-     * 这里是添加了一个拦截器，拦截器中可以针对连接、取消连接、发送消息都客户端行为进行逻辑处理
-     *
-     * @param registration
-     */
-    @Override
-    public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(getHeaderParamInterceptor);
-    }
-```
-* 拦截器实现如下：
-```
-import org.springframework.messaging.Message;
-import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
-import org.springframework.messaging.simp.stomp.StompCommand;
-import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
-import org.springframework.messaging.support.ChannelInterceptorAdapter;
-import org.springframework.messaging.support.MessageHeaderAccessor;
-import org.springframework.stereotype.Component;
-import java.util.LinkedList;
-import java.util.Map;
-
-@Component
-public class ConnectParamInterceptor extends ChannelInterceptorAdapter {
-
-    /**
-     *  org.springframework.messaging.simp.stomp.StompCommand支持的场景都可以拦截
-     */
-    @Override
-    public Message<?> preSend(Message<?> message, MessageChannel channel) {
-        StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
-        //处理客户端发起连接的场景
-        if (StompCommand.CONNECT.equals(accessor.getCommand())) {
-            Object raw = message.getHeaders().get(SimpMessageHeaderAccessor.NATIVE_HEADERS);
-            //这里也可以让前端传token校验
-            if (raw instanceof Map) {
-                Object usernameObj = ((Map) raw).get("username");
-                Object passwordObj = ((Map) raw).get("password");
-                if (usernameObj instanceof LinkedList && passwordObj instanceof LinkedList) {
-                    String username = ((LinkedList) usernameObj).get(0).toString();
-                    String password = ((LinkedList) passwordObj).get(0).toString();
-                    // 设置当前访问的认证用户
-                    accessor.setUser(new FastPrincipal(username));
-                } else {
-                    return null;//返回null，则登录不成功
-                }
-            }
-        }
-        //客户端断开连接
-        if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
-            System.out.println("==========登出==========");
-        }
-        return message;
-    }
-}
-```
-##### 4.3.2 在控制器中处理用户的消息
-在控制器的@MessageMapping或@SubscribeMapping方法中，处理消息时有两种方式了解用户信息。
-* 在处理器方法中，通过简单地添加一个Principal参数，这个方法就能知道用户是谁并利用该信息关注此用户相关的数据。
-* 除此之外，处理器方法还可以使用@SendToUser注解或者使用SimpMessageSendingOperations 接口的convertAndSendToUser方法，表明它的返回值要以消息的形式发送给某个认证用户的客户端（只发送给该客户端）。
-###### 4.3.2.1 基于@SendToUser注解和Principal参数
-```java
-    @MessageMapping("/spittle")
-    @SendToUser("/queue/notifications")
-    public ResponseMessage handleSpittle(Principal principal, RequestMessage requestMessage) {
-        ResponseMessage responseMessage = new ResponseMessage();
-        responseMessage.setContent(requestMessage.getContent());
-        responseMessage.setSender(requestMessage.getSender());
-        return responseMessage;
-    }
-```
-JavaScript客户端订阅目的地的代码：
-```js
-stomp.subscribe("/user/queue/notifications", requestMessage);
-```
-* 在内部，以“/user”作为前缀的目的地将会以特殊的方式进行处理。这种消息不会通过AnnotationMethodMessageHandler（像应用消息那样）来处理，也不会通过SimpleBrokerMessageHandler或StompBrokerRelayMessageHandler（像代理消息那样）来处理，以“/user”为前缀的消息将会通过UserDestinationMessageHandler进行处理
-* @SendToUser 表示要将消息发送给指定的用户，会自动在消息目的地前补上"/user"前缀。例如这里的消息目的地是/user/username/queue/notifications
-###### 4.3.2.2 为指定用户发送消息convertAndSendToUser
-除了convertAndSend()以外，SimpMessageSendingOperations 还提供了convertAndSendToUser()方法。按照名字就可以判断出来，convertAndSendToUser()方法能够让我们给特定用户发送消息。
-```java
-    @MessageMapping("/singleShout")
-    public void singleUser(RequestMessage requestMessage, StompHeaderAccessor stompHeaderAccessor) {
-        ResponseMessage responseMessage = new ResponseMessage();
-        responseMessage.setContent(requestMessage.getContent());
-        responseMessage.setSender(requestMessage.getSender());
-        Principal user = stompHeaderAccessor.getUser();
-        //目的地不要加registry.setUserDestinationPrefix设置的前缀
-        simpMessagingTemplate.convertAndSendToUser(user.getName(), "/queue/notifications", responseMessage);
     }
  ```
-* 如上，这里虽然我还是用了认证的信息得到用户名。但是，其实大可不必这样，因为 convertAndSendToUser 方法可以指定要发送给哪个用户。也就是说，完全可以把用户名的当作一个参数传递给控制器方法，从而绕过身份认证！convertAndSendToUser 方法最终会把消息发送到 /user/username/queue/notifications 目的地上。也就是前端订阅了/user/queue/notifications的客户端能消费到
-#### 4.4 处理消息异常
-在处理消息的时候，有可能会出错并抛出异常。因为STOMP消息异步的特点，发送者可能永远也不会知道出现了错误。@MessageExceptionHandler标注的方法能够处理消息方法中所抛出的异常。我们可以把错误发送给用户特定的目的地上，然后用户从该目的地上订阅消息，从而用户就能知道自己出现了什么错误啦...
+在这个过程中，系统做了哪些事情呢？
+* 对于接收者端，订阅队列queuename的消息
+* 对于接收者端，向queuename发送消息
+* destination 只会在第一次发送消息的时候会自动创建一个持久化队列,队列名称queuename，绑定默认的交换机
+![](https://github.com/lk6678979/image/blob/master/STOMP10.jpg)
+![](https://github.com/lk6678979/image/blob/master/STOMP11.jpg)
+
+#### 2.3  /amq/queue/queuedemo
+和上文的”/queue/queuename”相似，两者的区别是
+* 与/queue/queuename的区别在于队列不由stomp自动进行创建，队列不存在失败
+```java
+    @MessageMapping("/rdemo4")
+    @SendTo("/amq/queue/queuedemo")
+    public ResponseMessage stompHandle4(RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setContent(requestMessage.getContent());
+        responseMessage.setSender(requestMessage.getSender());
+        return responseMessage;
+    }
+ ```
+* destination 会实现对队列的消息订阅。 对于 SEND frame，消息会通过默认的 exhcange 直接被发送到队列中
+* 这种情况下无论是发送者还是接收者都不会产生队列。 但如果该队列不存在，接收者会报错。
+* 注意：如果代码中配置的/amq的队列在mq中没有创建，整个snomp都无法正常使用，不止是这个队列无法使用
+```java
+2019-11-26 14:20:59.571 ERROR 227300 --- [ent-scheduler-6] o.s.m.s.s.StompBrokerRelayMessageHandler : Received ERROR {message=[not_found], content-type=[text/plain], version=[1.0,1.1,1.2], content-length=[53]} session=4a2xepfz, user=21 text/plain payload=NOT_FOUND - no queue 'queuedemo' in vhost '/test-im'
 ```
-@MessageExceptionHandler(Exception.class)
-@SendToUser("/queue/errors")
-public Exception handleExceptions(Exception t){
-    t.printStackTrace();
-    return t;
-}
-```
-* @MessageExceptionHandler可以指定具体哪个异常
+#### 2.4  /topic/routing_key
+通过amq.topic交换机订阅/发布消息，订阅时默认创建一个临时队列，通过routing_key与topic进行绑定
+* /topic：固定前缀
+* routing_key：路由键
+```java
+    @MessageMapping("/rdemo5")
+    @SendTo("/topic/routing_demo")
+    public ResponseMessage stompHandle5(RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setContent(requestMessage.getContent());
+        responseMessage.setSender(requestMessage.getSender());
+        return responseMessage;
+    }
+ ```
+* 对于发送者端，会创建出自动删除的、非持久的队列并根据 routing_key路由键绑定到 amq.topic 交换机 上，同时实现对该队列的订阅。
+* 对于发送者端，消息会被发送到 amq.topic 交换机中。
+![](https://github.com/lk6678979/image/blob/master/STOMP12.jpg)
+![](https://github.com/lk6678979/image/blob/master/STOMP13.jpg)
 ### 3. JS客户端实现
 https://github.com/lk6678979/im/blob/master/StompJS%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3%E6%80%BB%E7%BB%93.md
-### 4. 前端html页面
+### 4. 前端html页面（改html中的访问地址即可）
 https://github.com/lk6678979/im/blob/master/boot-stomp/src/main/resources/static/stomp.html
