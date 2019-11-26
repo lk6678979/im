@@ -147,8 +147,6 @@ WebSocketRabbitMQMessageBrokerConfigurer中我们需要配置消息代理的前�
 * /exchange：固定值(标志位，标识后面是交换机名称)
 * exchangename：交换机名称
 * [routing_key]：路由键，可选
-    对于接收者端，该 destination 会创建一个唯一的、自动删除的随机queue， 并根据 routing_key将该 queue 绑定到所给的 exchangename，实现对该队列的消息订阅。
-对于发送者端，消息就会被发送到定义的 exchangename中，并且指定了 routing_key。
 ```java
     /**
      * 使用@SendTo方法指定消息的目的地
