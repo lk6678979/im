@@ -45,60 +45,30 @@ public class RabbitmqStompController {
         return responseMessage;
     }
 
-//    /***
-//     * 直接返回数据给客户端
-//     */
-//    @SubscribeMapping("/demo3")
-//    public ResponseMessage stompHandle3(RequestMessage requestMessage) {
-//        ResponseMessage responseMessage = new ResponseMessage();
-//        responseMessage.setContent(requestMessage.getContent());
-//        responseMessage.setSender(requestMessage.getSender());
-//        return responseMessage;
-//    }
-//
-//    /***
-//     * 使用@SendTo方法指定消息的目的地，不直接发送给客户端
-//     */
-//    @SubscribeMapping("/demo4")
-//    @SendTo("/topic/demo")
-//    public ResponseMessage stompHandle4(RequestMessage requestMessage) {
-//        ResponseMessage responseMessage = new ResponseMessage();
-//        responseMessage.setContent(requestMessage.getContent());
-//        responseMessage.setSender(requestMessage.getSender());
-//        return responseMessage;
-//    }
-//
-//    @MessageMapping("/spittle")
-//    @SendToUser("/queue/notifications")
-//    public ResponseMessage handleSpittle(Principal principal, RequestMessage requestMessage) {
-//        ResponseMessage responseMessage = new ResponseMessage();
-//        responseMessage.setContent(requestMessage.getContent());
-//        responseMessage.setSender(requestMessage.getSender());
-//        return responseMessage;
-//    }
-//
-//    @MessageMapping("/singleShout")
-//    public void singleUser(RequestMessage requestMessage, StompHeaderAccessor stompHeaderAccessor) {
-//        ResponseMessage responseMessage = new ResponseMessage();
-//        responseMessage.setContent(requestMessage.getContent());
-//        responseMessage.setSender(requestMessage.getSender());
-//        Principal user = stompHeaderAccessor.getUser();
-//        //目的地不要加registry.setUserDestinationPrefix设置的前缀
-//        simpMessagingTemplate.convertAndSendToUser(user.getName(), "/queue/notifications", responseMessage);
-//    }
-//
-//    @MessageMapping("/demoPlus")
-//    public void stompHandlePlus(Principal principal, RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
-//        String sender = principal.getName();
-//        ResponseMessage responseMessage = new ResponseMessage();
-//        responseMessage.setContent(requestMessage.getContent());
-//        responseMessage.setSender(sender);
-//        if ("1".equals(requestMessage.getType())) {//点对点
-//            //目的地不要加registry.setUserDestinationPrefix设置的前缀
-//            simpMessagingTemplate.convertAndSendToUser(requestMessage.getReceiver(), requestMessage.getTopic(), responseMessage);
-//        } else {
-//            //目的地要写全路径，不能省略前缀
-//            simpMessagingTemplate.convertAndSend("/topic/" + requestMessage.getTopic(), responseMessage);
-//        }
-//    }
+    @MessageMapping("/rdemo3")
+    @SendTo("/queue/queuedemo")
+    public ResponseMessage stompHandle3(RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setContent(requestMessage.getContent());
+        responseMessage.setSender(requestMessage.getSender());
+        return responseMessage;
+    }
+
+    @MessageMapping("/rdemo4")
+    @SendTo("/amq/queue/queuedemo")
+    public ResponseMessage stompHandle4(RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setContent(requestMessage.getContent());
+        responseMessage.setSender(requestMessage.getSender());
+        return responseMessage;
+    }
+
+    @MessageMapping("/rdemo5")
+    @SendTo("/topic/routing_demo")
+    public ResponseMessage stompHandle5(RequestMessage requestMessage) throws MessagingException, UnsupportedEncodingException {
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setContent(requestMessage.getContent());
+        responseMessage.setSender(requestMessage.getSender());
+        return responseMessage;
+    }
 }

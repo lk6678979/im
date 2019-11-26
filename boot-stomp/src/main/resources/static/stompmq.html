@@ -58,7 +58,7 @@
                     // 展示返回的信息，只要订阅了 /nasus/getResponse 目标，都可以接收到服务端返回的信息
                     showResponse("主题订阅", JSON.parse(respnose.body));
                 });
-                stompClient.subscribe('/user/queue/notifications', function (respnose) {
+                stompClient.subscribe('/topic/routing_demo', function (respnose) {
                     // 展示返回的信息，只要订阅了 /nasus/getResponse 目标，都可以接收到服务端返回的信息
                     showResponse("点对点", JSON.parse(respnose.body));
                 });
@@ -82,7 +82,7 @@
         var type =  $("input[name='type']:checked").val();
         var content = $('#content').val();
         // 通过 stompClient.send 向 /demo （服务端）发送信息，对应控制器 @MessageMapping 中的定义
-        stompClient.send("/app/rdemo", {}, JSON.stringify(
+        stompClient.send("/app/rdemo5", {}, JSON.stringify(
             {
                 receiver: receiver,
                 topic: topic,
