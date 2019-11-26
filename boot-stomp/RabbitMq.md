@@ -227,6 +227,7 @@ WebSocketRabbitMQMessageBrokerConfigurer中我们需要配置消息代理的前�
 * 对于发送者端，消息会被发送到 amq.topic 交换机中。
 ![](https://github.com/lk6678979/image/blob/master/STOMP12.jpg)
 ![](https://github.com/lk6678979/image/blob/master/STOMP13.jpg)
+![](https://github.com/lk6678979/image/blob/master/STOMP14.jpg)
 ### 3. JS客户端实现
 https://github.com/lk6678979/im/blob/master/StompJS%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3%E6%80%BB%E7%BB%93.md
 ### 4. 前端html页面（改html中的访问地址即可）
