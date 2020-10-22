@@ -232,3 +232,25 @@ WebSocketRabbitMQMessageBrokerConfigurer中我们需要配置消息代理的前�
 https://github.com/lk6678979/im/blob/master/StompJS%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3%E6%80%BB%E7%BB%93.md
 ### 4. 前端html页面（改html中的访问地址即可）
 https://github.com/lk6678979/im/blob/master/boot-stomp/src/main/resources/static/stomp.html
+
+### 5. 补充
+后端没有配置往前端发送心跳，配置方式
+```
+@Override
+    public void configureMessageBroker(MessageBrokerRegistry registry) {
+        //设置简单的消息代理器，它使用Memory（内存）作为消息代理器，
+        //其中/user和/topic都是我们发送到前台的数据前缀。前端必须订阅以/user开始的消息（.subscribe()进行监听）。
+        //setHeartbeatValue设置后台向前台发送的心跳，
+        //注意：setHeartbeatValue这个不能单独设置，不然不起作用，要配合后面setTaskScheduler才可以生效。
+        //对应的解决方法的网址：https://stackoverflow.com/questions/39220647/spring-stomp-over-websockets-not-scheduling-heartbeats
+        ThreadPoolTaskScheduler te = new ThreadPoolTaskScheduler();
+        te.setPoolSize(1);
+        te.setThreadNamePrefix("wss-heartbeat-thread-");
+        te.initialize();
+        registry.enableSimpleBroker("/user","/topic").setHeartbeatValue(new long[]{HEART_BEAT,HEART_BEAT}).setTaskScheduler(te);;
+        //设置我们前端发送：websocket请求的前缀地址。即client.send("/ws-send")作为前缀，然后再加上对应的@MessageMapping后面的地址
+        registry.setApplicationDestinationPrefixes("/ws-send");
+    }
+}
+```
+我们只要配置setHeartbeatValue(new long[]{HEART_BEAT,HEART_BEAT}).setTaskScheduler(te);这句话就可以了。前一个是配置心跳，后一个使用一个线程发送心跳。
