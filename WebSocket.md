@@ -101,3 +101,23 @@ runoob_websocket.html 文件内容
    </body>
 </html>
 ```
+# 注意 
+如果需要使用nginx转发websocket数据，需要额外配置
+```
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+```
+例子：
+```
+server {
+    listen 80;
+    location / {
+                    proxy_pass http://localhost:6000;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade $http_upgrade;
+                    proxy_set_header Connection "upgrade";
+            }
+  
+}
+```
